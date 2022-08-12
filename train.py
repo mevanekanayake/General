@@ -19,14 +19,14 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[2, 4, 6, 8], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tvsr", type=float, default=1., help="Fraction of data volumes used for training")
-    parser.add_argument("--vvsr", type=float, default=1., help="Fraction of data volumes used for validation")
+    parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training")
+    parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation")
     parser.add_argument("--mtype", type=str, choices=("random", "equispaced"), default="random", help="Type of k-space mask")
     parser.add_argument("--dset", choices=("fastmriknee", "fastmribrain"), default="fastmribrain", type=str, help="Which dataset is used")
 
     # TRAIN ARGS
-    parser.add_argument("--bs", type=int, default=8, help="Batch size for training and validation")
-    parser.add_argument("--ne", type=int, default=5, help="Number of epochs for training")
+    parser.add_argument("--bs", type=int, default=16, help="Batch size for training and validation")
+    parser.add_argument("--ne", type=int, default=100, help="Number of epochs for training")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
     parser.add_argument("--dv", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device for model training")
     parser.add_argument("--dp", type=str, default=None, help="Whether to perform Data parallelism")
@@ -74,14 +74,14 @@ def train_():
 
     # LOAD TRAINING DATA
     train_transform = Transform(train=True, mask_type=args.mtype, accelerations=args.acc)
-    train_dataset = Data(root=data_path, subfolder="train", transform=train_transform, vsr=args.tvsr)
-    train_loader = DataLoader(dataset=train_dataset, batch_size=args.bs, num_workers=1, shuffle=True, pin_memory=True)
+    train_dataset = Data(root=data_path, train=True, transform=train_transform, nv=args.tnv)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=args.bs, num_workers=0, shuffle=True, pin_memory=True)
     logger.info(f'Training set gathered: No. of volumes: {train_dataset.num_volumes} | No. of slices: {len(train_dataset)}')
 
     # LOAD VALIDATION DATA
     val_transform = Transform(train=False, mask_type=args.mtype, accelerations=args.acc)
-    val_dataset = Data(root=data_path, subfolder="val", transform=val_transform, vsr=args.vvsr)
-    val_loader = DataLoader(dataset=val_dataset, batch_size=args.bs, num_workers=1, shuffle=False, pin_memory=True)
+    val_dataset = Data(root=data_path, train=False, transform=val_transform, nv=args.vnv)
+    val_loader = DataLoader(dataset=val_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
     logger.info(f'Validation set gathered: No. of volumes: {val_dataset.num_volumes} | No. of slices: {len(val_dataset)}')
 
     # LOSS FUNCTION

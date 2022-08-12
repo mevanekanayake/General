@@ -1,42 +1,48 @@
 import torch
 from torch.utils.data import Dataset
 
-from pathlib import Path
-from tqdm import tqdm
 import os
 
 
 class Data(Dataset):
 
-    def __init__(self, root, subfolder, vsr=1.0, transform=None):
+    def __init__(self, root, train=False, nv=0, transform=None):
 
-        root = os.path.join(root, subfolder)
+        self.root = root
         self.transform = transform
-        fpaths = sorted(list(Path(root).iterdir()))
+        self.train = train
 
-        if vsr < 1.0:
-            num_volumes = round(len(fpaths) * vsr)
-            fpaths = fpaths[:num_volumes]
+        lib_path = os.path.join(root, "library.pt")
+        self.library = torch.load(lib_path)
+        self.seq_types = self.library["train"].keys()
 
         self.examples = []
-        self.num_volumes = len(fpaths)
-        self.seq_types = []
 
-        for fpath in tqdm(sorted(fpaths), desc=f"Gathering {subfolder} data"):
-            data = torch.load(fpath)
-            kspace = data["kspace"]
-            self.seq_types.append(data["sequence"]) if data["sequence"] not in self.seq_types else None
-            num_slices = kspace.shape[0]
-            self.examples += [(fpath, slice_ind) for slice_ind in range(num_slices)]
+        # nv!= 0 means partial dataset. nv= 0 means full dataset.
+        if nv != 0:
+            n = int(nv / len(self.seq_types))
+            self.num_volumes = n * len(self.seq_types)
+            for seq_type in self.seq_types:
+                if train:
+                    self.examples += [item for sublist in self.library["train"][seq_type][:n] for item in sublist]
+                else:
+                    self.examples += [item for sublist in self.library["val"][seq_type][:n] for item in sublist]
+        else:
+            self.num_volumes = sum([len(self.library[f"{'train' if self.train else 'val'}"][seq_type]) for seq_type in self.seq_types])
+            for seq_type in self.seq_types:
+                if train:
+                    self.examples += [item for sublist in self.library["train"][seq_type] for item in sublist]
+                else:
+                    self.examples += [item for sublist in self.library["val"][seq_type] for item in sublist]
 
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, i):
-        fpath, slice_id = self.examples[i]
-        data = torch.load(fpath)
+        fname, slice_id = self.examples[i]
+        data = torch.load(os.path.join(self.root, f"{'train' if self.train else 'val'}", f"{fname}.pt"))
         kspace = data["kspace"][slice_id]
         sequence = data["sequence"]
-        sample = self.transform(kspace, fpath.name.split('.')[0], slice_id, sequence)
+        sample = self.transform(kspace, fname, slice_id, sequence)
 
         return sample
