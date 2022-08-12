@@ -111,8 +111,8 @@ class RunManager:
 
         self.epoch_start_time = time.time()
         self.epoch_count += 1
-        self.epoch_train_loss = 0
-        self.epoch_val_loss = 0
+        self.epoch_train_loss = torch.tensor(0.)
+        self.epoch_val_loss = torch.tensor(0.)
 
         self.train_slice_count = 0
         self.val_slice_count = 0
@@ -207,9 +207,9 @@ class RunManager:
             volume_slice_stats["PSNR"] = [volume_stats[fname]["psnr"].item() for fname in fnames]
             volume_slice_stats["SSIM"] = [volume_stats[fname]["ssim"].item() for fname in fnames]
             for slice_idx in range(max(volume_slice_stats["num_slices"])):
-                volume_slice_stats[f"NMSE_S{str(slice_idx+1).zfill(2)}"] = [self.slice_stats[fname]["nmse"].get(slice_idx, '') for fname in fnames]
-                volume_slice_stats[f"SSIM_S{str(slice_idx+1).zfill(2)}"] = [self.slice_stats[fname]["ssim"].get(slice_idx, '') for fname in fnames]
-                volume_slice_stats[f"PSNR_S{str(slice_idx+1).zfill(2)}"] = [self.slice_stats[fname]["psnr"].get(slice_idx, '') for fname in fnames]
+                volume_slice_stats[f"NMSE_S{str(slice_idx + 1).zfill(2)}"] = [self.slice_stats[fname]["nmse"].get(slice_idx, '') for fname in fnames]
+                volume_slice_stats[f"SSIM_S{str(slice_idx + 1).zfill(2)}"] = [self.slice_stats[fname]["ssim"].get(slice_idx, '') for fname in fnames]
+                volume_slice_stats[f"PSNR_S{str(slice_idx + 1).zfill(2)}"] = [self.slice_stats[fname]["psnr"].get(slice_idx, '') for fname in fnames]
 
             pd.DataFrame.from_dict(volume_slice_stats, orient='columns').to_csv(Path(f'{self.experiments_path}', f'{self.folder_name}_volume_slice_stats.csv'), index=False)
 
