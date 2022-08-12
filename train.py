@@ -42,8 +42,8 @@ def train_():
     args = parser.parse_args()
 
     # LOAD CHECKPOINT
-    ckpt = torch.load(Path(args.checkpoint), map_location='cpu') if args.checkpoint else None
-    args.num_epochs = args.num_epochs - ckpt['epoch'] if args.checkpoint else args.num_epochs
+    ckpt = torch.load(Path(args.ckpt), map_location='cpu') if args.ckpt else None
+    args.ne = args.ne - ckpt['epoch'] if args.ckpt else args.ne
 
     # SET SEED
     set_seed()
@@ -52,7 +52,7 @@ def train_():
     set_cuda()
 
     # SET/CREATE PATHS
-    data_path, exp_path = fetch_paths(args.dataset)
+    data_path, exp_path = fetch_paths(args.dset)
 
     # LOG ARGS, PATHS
     logger = set_logger(exp_path)
@@ -63,25 +63,25 @@ def train_():
 
     # LOAD MODEL
     model = Unet(args)
-    model.load_state_dict(ckpt['last_model_state_dict']) if args.checkpoint else None
+    model.load_state_dict(ckpt['last_model_state_dict']) if args.ckpt else None
     logger.info(f'No. of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 
     # SET GPUS
     model, args, device_ids = set_device(model, args)
     logger.info(f'num GPUs available: {torch.cuda.device_count()}')
     logger.info(f'num GPUs using: {len(device_ids)}')
-    logger.info(f'GPU model: {torch.cuda.get_device_name(args.device)}') if torch.cuda.device_count() > 0 else None
+    logger.info(f'GPU model: {torch.cuda.get_device_name(args.dv)}') if torch.cuda.device_count() > 0 else None
 
     # LOAD TRAINING DATA
-    train_transform = Transform(train=True, mask_type=args.mask_type, accelerations=args.acceleration_factors)
+    train_transform = Transform(train=True, mask_type=args.mtype, accelerations=args.acc)
     train_dataset = Data(root=data_path, subfolder="train", transform=train_transform, vsr=args.tvsr)
-    train_loader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, num_workers=1, shuffle=True, pin_memory=True)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=args.bs, num_workers=1, shuffle=True, pin_memory=True)
     logger.info(f'Training set gathered: No. of volumes: {train_dataset.num_volumes} | No. of slices: {len(train_dataset)}')
 
     # LOAD VALIDATION DATA
-    val_transform = Transform(train=False, mask_type=args.mask_type, accelerations=args.acceleration_factors)
+    val_transform = Transform(train=False, mask_type=args.mtype, accelerations=args.acc)
     val_dataset = Data(root=data_path, subfolder="val", transform=val_transform, vsr=args.vvsr)
-    val_loader = DataLoader(dataset=val_dataset, batch_size=args.batch_size, num_workers=1, shuffle=False, pin_memory=True)
+    val_loader = DataLoader(dataset=val_dataset, batch_size=args.bs, num_workers=1, shuffle=False, pin_memory=True)
     logger.info(f'Validation set gathered: No. of volumes: {val_dataset.num_volumes} | No. of slices: {len(val_dataset)}')
 
     # LOSS FUNCTION
@@ -92,13 +92,13 @@ def train_():
     optimizer = torch.optim.RMSprop(params=model.parameters(),
                                     lr=args.lr,
                                     weight_decay=0.)
-    optimizer.load_state_dict(ckpt['optimizer_state_dict']) if args.checkpoint else None
+    optimizer.load_state_dict(ckpt['optimizer_state_dict']) if args.ckpt else None
 
     # INITIALIZE RUN MANAGER
     m = RunManager(exp_path, ckpt, val_dataset.seq_types)
 
     # LOOP
-    for _ in range(args.num_epochs):
+    for _ in range(args.ne):
         # BEGIN EPOCH
         m.begin_epoch()
 
@@ -109,8 +109,8 @@ def train_():
             for train_batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                image = train_batch[2].to(args.device)
-                target = train_batch[4].to(args.device)
+                image = train_batch[2].to(args.dv)
+                target = train_batch[4].to(args.dv)
 
                 optimizer.zero_grad()
                 output = model(image)
@@ -129,8 +129,8 @@ def train_():
                 for val_batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    image = val_batch[2].to(args.device)
-                    target = val_batch[4].to(args.device)
+                    image = val_batch[2].to(args.dv)
+                    target = val_batch[4].to(args.dv)
                     fname = val_batch[6]
                     slice_num = val_batch[7]
                     sequence = val_batch[8]

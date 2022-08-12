@@ -58,13 +58,13 @@ def set_logger(exp_path):
 
 
 def set_device(model, args):
-    if args.data_parallel:
-        device_ids = [int(device_id) for device_id in args.data_parallel.split(',')]
+    if args.dp:
+        device_ids = [int(device_id) for device_id in args.dp.split(',')]
         model = nn.DataParallel(model, device_ids=device_ids)
-        args.device = f'cuda:{device_ids[0]}'
-        model.to(args.device)
+        args.dv = f'cuda:{device_ids[0]}'
+        model.to(args.dv)
     else:
-        model.to(args.device)
+        model.to(args.dv)
         device_ids = [0]
 
     return model, args, device_ids
