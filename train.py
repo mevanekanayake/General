@@ -18,10 +18,11 @@ def train_():
     parser = argparse.ArgumentParser()
 
     # DATA ARGS
-    parser.add_argument("--acc", type=list, default=[2, 4, 6, 8], help="Acceleration factors for the k-space undersampling")
+    parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
     parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training")
     parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation")
     parser.add_argument("--mtype", type=str, choices=("random", "equispaced"), default="random", help="Type of k-space mask")
+    parser.add_argument("--dset", choices=("fastmriknee", "fastmribrain"), default="fastmribrain", type=str, help="Which dataset is used")
     parser.add_argument("--dset", choices=("fastmriknee", "fastmribrain"), default="fastmribrain", type=str, help="Which dataset is used")
 
     # TRAIN ARGS
@@ -30,7 +31,10 @@ def train_():
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
     parser.add_argument("--dv", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device for model training")
     parser.add_argument("--dp", type=str, default=None, help="Whether to perform Data parallelism")
+
+    # EXPERIMENT ARGS
     parser.add_argument("--ckpt", type=str, help="Continue trainings from checkpoint")
+    parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
     parser.add_argument("--in_chans", type=int, default=1, help="Number of channels in the input image ")
@@ -95,7 +99,7 @@ def train_():
     optimizer.load_state_dict(ckpt['optimizer_state_dict']) if args.ckpt else None
 
     # INITIALIZE RUN MANAGER
-    m = RunManager(exp_path, ckpt, val_dataset.seq_types)
+    m = RunManager(exp_path, ckpt, val_dataset.seq_types, args.pf)
 
     # LOOP
     for _ in range(args.ne):
@@ -109,8 +113,8 @@ def train_():
             for train_batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                image = train_batch[2].to(args.dv)
-                target = train_batch[4].to(args.dv)
+                image = train_batch.image_zf.to(args.dv)
+                target = train_batch.target.to(args.dv)
 
                 optimizer.zero_grad()
                 output = model(image)
@@ -129,18 +133,18 @@ def train_():
                 for val_batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    image = val_batch[2].to(args.dv)
-                    target = val_batch[4].to(args.dv)
-                    fname = val_batch[6]
-                    slice_num = val_batch[7]
-                    sequence = val_batch[8]
+                    image = val_batch.image_zf.to(args.dv)
+                    target = val_batch.target.to(args.dv)
+                    fname = val_batch.fname
+                    slice_num = val_batch.slice_num
+                    sequence = val_batch.sequence
 
                     output = model(image)
                     val_loss = loss(output, target)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss)
-                    m.end_val_step(fname, slice_num, sequence, output.to('cpu'), target.to('cpu'), val_loss.to('cpu'))
+                    m.end_val_step(fname, slice_num, sequence, image.to('cpu'), output.to('cpu'), target.to('cpu'), val_loss.to('cpu'))
 
         # END EPOCH
         m.end_epoch(model, optimizer)
