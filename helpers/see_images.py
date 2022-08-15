@@ -7,6 +7,7 @@ import os
 import math
 from pathlib import Path
 import matplotlib.pyplot as plt
+import seaborn_image as isns
 
 data_path = Path("D://Data//NYU_FastMRI_V2//Brain_MRI")
 lib_path = os.path.join(data_path, "library.pt")
@@ -26,14 +27,14 @@ for seq in library["val"].keys():
     # plt.figure(figsize=(num_rows*scale, num_cols*scale))
     # plt.subplots_adjust(hspace=0.5)
     # plt.suptitle(f"Daily closing prices", fontsize=18, y=0.95)
-
+    target_list = []
     for snum in range(num_slices):
         data = torch.load(os.path.join(data_path, "val", f"{fname}.pt"))
         kspace_ori = data["kspace"][snum]
         target2 = ift(kspace_ori)
         target = complex_abs(target2)
-        plt.imshow(target.data)
-        plt.show()
+        target_list.append(target)
 
+    g = isns.ImageGrid(target_list, col_wrap=4, cbar=False, cmap='gray')
     plt.show()
     print()
