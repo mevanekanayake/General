@@ -7,4 +7,3 @@ matplotlib
 h5py
 torch
 seaborn
-seaborn_image
