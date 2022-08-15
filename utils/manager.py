@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 
+from utils.visualize import inp_out_ref
+
 import platform
 import json
 from datetime import datetime
@@ -86,15 +88,18 @@ class RunManager:
 
     slice_stats: dict
 
-    def __init__(self, experiments_path, ckpt, seq_types, plot_freq):
+    def __init__(self, experiments_path, ckpt, seq_types, plot_freq, selected_examples):
 
         self.experiments_path = experiments_path
         self.folder_name = experiments_path.name
+        self.fig_path = os.path.join(self.experiments_path, f'{self.folder_name}_validation_images')
+        os.mkdir(self.fig_path)
         self.epoch_count = ckpt['epoch'] if ckpt else 0
         self.best_model_state_dict = ckpt['best_model_state_dict'] if ckpt else None
         self.best_val_loss = ckpt['best_val_loss'] if ckpt else float('inf')
         self.seq_types = seq_types
         self.plot_freq = plot_freq
+        self.selected_fnames = selected_examples
         self.summary = OrderedDict({"epoch_no": [],
                                     "epoch_duration": [],
                                     "train_loss": [],
@@ -111,7 +116,6 @@ class RunManager:
     def begin_epoch(self):
 
         self.epoch_start_time = time.time()
-        self.epoch_count += 1
         self.epoch_train_loss = torch.tensor(0.)
         self.epoch_val_loss = torch.tensor(0.)
 
@@ -129,12 +133,12 @@ class RunManager:
         self.epoch_train_loss += train_loss * size_of_train_batch
         self.train_slice_count += size_of_train_batch
 
-    def end_val_step(self, fnames, slice_nums, sequences, inputs, outputs, targets, val_loss):
+    def end_val_step(self, fnames, slice_nums, sequences, zfimages, outputs, targets, val_loss):
 
         self.epoch_val_loss += val_loss * targets.shape[0]
         self.val_slice_count += targets.shape[0]
 
-        for fname, slice_num, sequence, output, target in zip(fnames, slice_nums, sequences, outputs, targets):
+        for fname, slice_num, sequence, zfimage, output, target in zip(fnames, slice_nums, sequences, zfimages, outputs, targets):
 
             slice_num = slice_num.item()
 
@@ -156,8 +160,9 @@ class RunManager:
             self.slice_stats[fname]["ssim"][slice_num] = (metrics.ssim(target, output)).item()
 
             # PLOTTING
-            if self.epoch_count % self.plot_freq == 0:
-                inp_out_ref()
+            if (self.epoch_count % self.plot_freq == 0) and (fname in self.selected_fnames) and (slice_num == 0):
+                fig_path = os.path.join(self.fig_path, f'epoch_{self.epoch_count}')
+                inp_out_ref(images=[zfimage.squeeze(0), output.squeeze(0), target.squeeze(0)], title=fname, root=fig_path)
 
     def end_epoch(self, model, optimizer):
 
@@ -224,3 +229,5 @@ class RunManager:
                     'best_model_state_dict': self.best_model_state_dict,
                     'best_val_loss': self.best_val_loss,
                     }, os.path.join(self.experiments_path, f'{self.folder_name}_model.pth'))
+
+        self.epoch_count += 1
