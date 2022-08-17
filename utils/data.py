@@ -32,7 +32,7 @@ class Data(Dataset):
             self.num_volumes = sum([len(self.library[self.key][seq_type]) for seq_type in self.seq_types])
             for seq_type in self.seq_types:
                 self.examples += [item for sublist in self.library[self.key][seq_type] for item in sublist]
-                self.selected_examples.append(random.choice([item[0][0] for item in self.library[self.key][seq_type]])) if not train else None
+                self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type]], k=3) if not train else []
                 # collect the file name of the first slice from randomly 3 selected volume from each sequence out of all volumes
 
     def __len__(self):
