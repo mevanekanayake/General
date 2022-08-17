@@ -19,8 +19,8 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tnv", type=int, default=700, help="Number of volumes used for training [set to 0 for the full dataset]")
-    parser.add_argument("--vnv", type=int, default=300, help="Number of volumes used for validation [set to 0 for the full dataset]")
+    parser.add_argument("--tnv", type=int, default=0, help="Number of volumes used for training [set to 0 for the full dataset]")
+    parser.add_argument("--vnv", type=int, default=0, help="Number of volumes used for validation [set to 0 for the full dataset]")
     parser.add_argument("--mtype", type=str, default="random", choices=("random", "equispaced"), help="Type of k-space mask")
     parser.add_argument("--dset", type=str, default="fastmribrain", choices=("fastmriknee", "fastmribrain"), help="Which dataset to use")
 
