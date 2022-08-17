@@ -137,8 +137,9 @@ class RunManager:
 
     def end_val_step(self, fnames, slice_nums, sequences, zfimages, outputs, targets, val_loss):
 
-        self.epoch_val_loss += val_loss * targets.shape[0]
-        self.val_slice_count += targets.shape[0]
+        size_of_val_batch = targets.shape[0]
+        self.epoch_val_loss += val_loss * size_of_val_batch
+        self.val_slice_count += size_of_val_batch
 
         for fname, slice_num, sequence, zfimage, output, target in zip(fnames, slice_nums, sequences, zfimages, outputs, targets):
 
@@ -205,7 +206,6 @@ class RunManager:
 
         # SAVE VOLUME/SLICE-WISE STATS and STATES (only if best epoch)
         if avg_epoch_val_loss < self.best_val_loss:
-
             self.best_val_loss = avg_epoch_val_loss
             self.best_model_state_dict = last_model_state_dict
 

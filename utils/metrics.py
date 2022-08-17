@@ -6,11 +6,11 @@ from torchmetrics.functional import peak_signal_noise_ratio as psnr_torch
 
 
 def mse(gt, pred):
-    return torch.mean((gt - pred) ** 2)
+    return torch.mean((pred - gt) ** 2)
 
 
 def nmse(gt, pred):
-    return torch.linalg.norm(gt - pred) ** 2 / torch.linalg.norm(gt) ** 2
+    return torch.linalg.norm(pred - gt) ** 2 / torch.linalg.norm(gt) ** 2
 
 
 def psnr(gt, pred):

@@ -19,15 +19,15 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tnv", type=int, default=700, help="Number of volumes used for training")
-    parser.add_argument("--vnv", type=int, default=300, help="Number of volumes used for validation")
-    parser.add_argument("--mtype", type=str, choices=("random", "equispaced"), default="random", help="Type of k-space mask")
-    parser.add_argument("--dset", choices=("fastmriknee", "fastmribrain"), default="fastmribrain", type=str, help="Which dataset is used")
+    parser.add_argument("--tnv", type=int, default=8, help="Number of volumes used for training [set to 0 for the full dataset]")
+    parser.add_argument("--vnv", type=int, default=4, help="Number of volumes used for validation [set to 0 for the full dataset]")
+    parser.add_argument("--mtype", type=str, default="random", choices=("random", "equispaced"), help="Type of k-space mask")
+    parser.add_argument("--dset", type=str, default="fastmribrain", choices=("fastmriknee", "fastmribrain"), help="Which dataset to use")
 
     # TRAIN ARGS
-    parser.add_argument("--bs", type=int, default=16, help="Batch size for training and validation")
-    parser.add_argument("--ne", type=int, default=100, help="Number of epochs for training")
-    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate")
+    parser.add_argument("--bs", type=int, default=4, help="Batch size for training and validation")
+    parser.add_argument("--ne", type=int, default=100, help="Number of epochs")
+    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for training")
     parser.add_argument("--dv", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device for model training")
     parser.add_argument("--dp", type=str, default=None, help="Whether to perform Data parallelism")
 
@@ -92,9 +92,7 @@ def train_():
 
     # SET OPTIMIZER
     logger.info(f'Optimizer: RMSprop')
-    optimizer = torch.optim.RMSprop(params=model.parameters(),
-                                    lr=args.lr,
-                                    weight_decay=0.)
+    optimizer = torch.optim.RMSprop(params=model.parameters(), lr=args.lr)
     optimizer.load_state_dict(ckpt['last_optimizer_state_dict']) if args.ckpt else None
 
     # INITIALIZE RUN MANAGER
@@ -122,7 +120,7 @@ def train_():
                 optimizer.step()
 
                 # END TRAINING STEP
-                train_epoch.set_postfix(train_loss=train_loss.detach())
+                train_epoch.set_postfix(train_loss=train_loss.detach().item())
                 m.end_train_step(train_loss.detach().to('cpu'), train_batch[0].shape[0])
 
         # BEGIN VALIDATION LOOP
@@ -142,7 +140,7 @@ def train_():
                     val_loss = loss(output, target)
 
                     # END VALIDATION STEP
-                    val_epoch.set_postfix(val_loss=val_loss)
+                    val_epoch.set_postfix(val_loss=val_loss.detach().item())
                     m.end_val_step(fname, slice_num, sequence, image.to('cpu'), output.to('cpu'), target.to('cpu'), val_loss.to('cpu'))
 
         # END EPOCH
