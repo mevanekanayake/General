@@ -19,8 +19,8 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training")
-    parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation")
+    parser.add_argument("--tnv", type=int, default=700, help="Number of volumes used for training")
+    parser.add_argument("--vnv", type=int, default=300, help="Number of volumes used for validation")
     parser.add_argument("--mtype", type=str, choices=("random", "equispaced"), default="random", help="Type of k-space mask")
     parser.add_argument("--dset", choices=("fastmriknee", "fastmribrain"), default="fastmribrain", type=str, help="Which dataset is used")
 
@@ -95,7 +95,7 @@ def train_():
     optimizer = torch.optim.RMSprop(params=model.parameters(),
                                     lr=args.lr,
                                     weight_decay=0.)
-    optimizer.load_state_dict(ckpt['optimizer_state_dict']) if args.ckpt else None
+    optimizer.load_state_dict(ckpt['last_optimizer_state_dict']) if args.ckpt else None
 
     # INITIALIZE RUN MANAGER
     m = RunManager(exp_path, ckpt, val_dataset.seq_types, args.pf, val_dataset.selected_examples)

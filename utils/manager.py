@@ -115,6 +115,8 @@ class RunManager:
 
     def begin_epoch(self):
 
+        self.epoch_count += 1
+
         self.epoch_start_time = time.time()
         self.epoch_train_loss = torch.tensor(0.)
         self.epoch_val_loss = torch.tensor(0.)
@@ -229,5 +231,3 @@ class RunManager:
                     'best_model_state_dict': self.best_model_state_dict,
                     'best_val_loss': self.best_val_loss,
                     }, os.path.join(self.experiments_path, f'{self.folder_name}_model.pth'))
-
-        self.epoch_count += 1
