@@ -62,7 +62,7 @@ def train_():
     for entry in vars(args):
         logger.info(f'{entry}: {vars(args)[entry]}')
     logger.info(f'data_path = {str(data_path)}')
-    logger.info(f'experiments_path = {str(exp_path)}')
+    logger.info(f'experiment_path = {str(exp_path)}')
 
     # LOAD MODEL
     model = Unet(args)
@@ -79,13 +79,13 @@ def train_():
     train_transform = Transform(train=True, mask_type=args.mtype, accelerations=args.acc)
     train_dataset = Data(root=data_path, train=True, transform=train_transform, nv=args.tnv)
     train_loader = DataLoader(dataset=train_dataset, batch_size=args.bs, num_workers=0, shuffle=True, pin_memory=True)
-    logger.info(f'Training set gathered: No. of volumes: {train_dataset.num_volumes} | No. of slices: {len(train_dataset)}')
+    logger.info(f'Training set: No. of volumes: {train_dataset.num_volumes} | No. of slices: {len(train_dataset)}')
 
     # LOAD VALIDATION DATA
     val_transform = Transform(train=False, mask_type=args.mtype, accelerations=args.acc)
     val_dataset = Data(root=data_path, train=False, transform=val_transform, nv=args.vnv)
     val_loader = DataLoader(dataset=val_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
-    logger.info(f'Validation set gathered: No. of volumes: {val_dataset.num_volumes} | No. of slices: {len(val_dataset)}')
+    logger.info(f'Validation set: No. of volumes: {val_dataset.num_volumes} | No. of slices: {len(val_dataset)}')
 
     # LOSS FUNCTION
     loss = nn.L1Loss()
