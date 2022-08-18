@@ -21,36 +21,20 @@ class Data(Dataset):
         self.selected_examples = []
 
         # COLLECT ALL SLICES
-        # # nv!= 0 means partial dataset. nv= 0 means full dataset.
-        # if nv != 0:
-        #     vols_per_seq = int(nv / len(self.seq_types))
-        #     self.num_volumes = vols_per_seq * len(self.seq_types)
-        #     for seq_type in self.seq_types:
-        #         self.examples += [item for sublist in self.library[self.key][seq_type][:vols_per_seq] for item in sublist]
-        #         self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type][:vols_per_seq]], k=3) if not train else []
-        #         # collect the file name of the first slice from randomly selected 3 volume from each sequence out of the sampled volumes
-        # else:
-        #     self.num_volumes = sum([len(self.library[self.key][seq_type]) for seq_type in self.seq_types])
-        #     for seq_type in self.seq_types:
-        #         self.examples += [item for sublist in self.library[self.key][seq_type] for item in sublist]
-        #         self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type]], k=3) if not train else []
-        #         # collect the file name of the first slice from randomly 3 selected volume from each sequence out of all volumes
-
-        # COLLECT ONLY FIRST SLICES
         # nv!= 0 means partial dataset. nv= 0 means full dataset.
         if nv != 0:
             vols_per_seq = int(nv / len(self.seq_types))
             self.num_volumes = vols_per_seq * len(self.seq_types)
             for seq_type in self.seq_types:
-                self.examples += [item[0] for item in self.library[self.key][seq_type][:vols_per_seq]]
-                self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type][:vols_per_seq]], k=3) if not train else []
-                # collect the file name of the first slice from randomly selected 3 volume from each sequence out of the sampled volumes
+                self.examples += [item for sublist in self.library[self.key][seq_type][:vols_per_seq] for item in sublist]
+                self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type][:vols_per_seq]], k=5) if not train else []
+                # collect the file names of randomly selected 5 volumes from each sequence out of the sampled volumes
         else:
             self.num_volumes = sum([len(self.library[self.key][seq_type]) for seq_type in self.seq_types])
             for seq_type in self.seq_types:
-                self.examples += [item[0] for item in self.library[self.key][seq_type]]
-                self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type]], k=3) if not train else []
-                # collect the file name of the first slice from randomly 3 selected volume from each sequence out of all volumes
+                self.examples += [item for sublist in self.library[self.key][seq_type] for item in sublist]
+                self.selected_examples += random.choices([item[0][0] for item in self.library[self.key][seq_type]], k=5) if not train else []
+                # collect the file names of randomly selected 5 volumes from each sequence out of all volumes
 
     def __len__(self):
         return len(self.examples)
