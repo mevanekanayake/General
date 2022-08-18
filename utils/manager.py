@@ -167,7 +167,7 @@ class RunManager:
                 fig_path = os.path.join(self.fig_path, f'epoch_{self.epoch_count}')
                 inp_out_ref(images=[zfimage.squeeze(0), output.squeeze(0), target.squeeze(0)], title=fname, root=fig_path)
 
-    def end_epoch(self, model, optimizer):
+    def end_epoch(self, model, optimizer, logger):
 
         epoch_duration = time.time() - self.epoch_start_time
         volume_stats = {}
@@ -224,6 +224,11 @@ class RunManager:
                 volume_slice_stats[f"PSNR_S{str(slice_idx + 1).zfill(2)}"] = [self.slice_stats[fname]["psnr"].get(slice_idx, '') for fname in fnames]
 
             pd.DataFrame.from_dict(volume_slice_stats, orient='columns').to_csv(Path(f'{self.experiments_path}', f'{self.folder_name}_volume_slice_stats.csv'), index=False)
+
+            best_nmse = torch.mean(torch.tensor(([volume_stats[fname]["nmse"].item() for fname in fnames]))).item()
+            best_psnr = torch.mean(torch.tensor(([volume_stats[fname]["psnr"].item() for fname in fnames]))).item()
+            best_ssim = torch.mean(torch.tensor(([volume_stats[fname]["ssim"].item() for fname in fnames]))).item()
+            logger.info(f'Best performance recorded >> epoch: {self.epoch_count} | NMSE: {best_nmse:.4f} | PSNR: {best_psnr:.2f} | SSIM: {best_ssim:.4f}')
 
         torch.save({'epoch': self.epoch_count,
                     'last_model_state_dict': last_model_state_dict,

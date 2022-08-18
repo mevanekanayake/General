@@ -144,7 +144,7 @@ def train_():
                     m.end_val_step(fname, slice_num, sequence, image.to('cpu'), output.to('cpu'), target.to('cpu'), val_loss.to('cpu'))
 
         # END EPOCH
-        m.end_epoch(model, optimizer)
+        m.end_epoch(model, optimizer, logger)
 
 
 if __name__ == '__main__':
