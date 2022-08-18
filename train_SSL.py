@@ -9,6 +9,9 @@ from pathlib import Path
 from utils.data import Data
 from utils.transform import Transform
 from utils.manager import set_seed, set_cuda, fetch_paths, set_logger, set_device, RunManager
+from utils.fourier import fft2c as ft
+from utils.fourier import ifft2c as ift
+from utils.math import complex_abs
 
 from models.unet import Unet
 
@@ -36,8 +39,8 @@ def train_():
     parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
-    parser.add_argument("--in_chans", type=int, default=1, help="Number of channels in the input image ")
-    parser.add_argument("--out_chans", type=int, default=1, help="Number of channels in the output image ")
+    parser.add_argument("--in_chans", type=int, default=2, help="Number of channels in the input image ")
+    parser.add_argument("--out_chans", type=int, default=2, help="Number of channels in the output image ")
     parser.add_argument("--chans", type=int, default=32, help="Number of channels in top Layer")
     parser.add_argument("--num_pool_layers", type=int, default=4, help="Number of pooling layers of the U-Net")
 
@@ -110,12 +113,15 @@ def train_():
             for batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                image = batch.image_zf.to(args.dv)
-                target = batch.target.to(args.dv)
+                kspace_und = batch.kspace_und.to(args.dv)
+                mask = batch.mask.to(args.dv)
+                image_zf2 = batch.image_zf2.to(args.dv)
 
                 optimizer.zero_grad()
-                output = model(image)
-                train_loss = loss(output, target)
+
+                kspace_out = ift(mask.permute(0, 2, 3, 1)*ft(model(image_zf2).permute(0, 2, 3, 1))).permute(0, 3, 1, 2)
+
+                train_loss = loss(kspace_out, kspace_und)
                 train_loss.backward()
                 optimizer.step()
 
@@ -130,14 +136,18 @@ def train_():
                 for batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
+                    kspace_und = batch.kspace_und.to(args.dv)
+                    mask = batch.mask.to(args.dv)
                     image = batch.image_zf.to(args.dv)
+                    image_zf2 = batch.image_zf2.to(args.dv)
                     target = batch.target.to(args.dv)
                     fname = batch.fname
                     slice_num = batch.slice_num
                     sequence = batch.sequence
 
-                    output = model(image)
-                    val_loss = loss(output, target)
+                    kspace_out = ift(mask.permute(0, 2, 3, 1) * ft(model(image_zf2).permute(0, 2, 3, 1))).permute(0, 3, 1, 2)
+                    output = complex_abs(model(image_zf2).permute(0, 2, 3, 1)).unsqueeze(1)
+                    val_loss = loss(kspace_out, kspace_und)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
