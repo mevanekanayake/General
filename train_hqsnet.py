@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from utils.data import Data
+from utils.math import complex_abs
 from utils.transform import Transform
 from utils.manager import set_seed, set_cuda, fetch_paths, set_logger, set_device, RunManager
 
@@ -19,8 +20,8 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training [set to 0 for the full dataset]")
-    parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation [set to 0 for the full dataset]")
+    parser.add_argument("--tnv", type=int, default=20, help="Number of volumes used for training [set to 0 for the full dataset]")
+    parser.add_argument("--vnv", type=int, default=5, help="Number of volumes used for validation [set to 0 for the full dataset]")
     parser.add_argument("--mtype", type=str, default="random", choices=("random", "equispaced"), help="Type of k-space mask")
     parser.add_argument("--dset", type=str, default="fastmribrain", choices=("fastmriknee", "fastmribrain"), help="Which dataset to use")
 
@@ -145,6 +146,7 @@ def train_():
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
+                    output = complex_abs(output.permute(0, 2, 3, 1)).unsqueeze(1)
                     m.end_val_step(fname, slice_num, sequence, image.to('cpu'), output.to('cpu'), target.to('cpu'), val_loss.to('cpu'))
 
         # END EPOCH
