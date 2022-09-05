@@ -20,13 +20,13 @@ def train_():
 
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
-    parser.add_argument("--tnv", type=int, default=20, help="Number of volumes used for training [set to 0 for the full dataset]")
-    parser.add_argument("--vnv", type=int, default=5, help="Number of volumes used for validation [set to 0 for the full dataset]")
+    parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training [set to 0 for the full dataset]")
+    parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation [set to 0 for the full dataset]")
     parser.add_argument("--mtype", type=str, default="random", choices=("random", "equispaced"), help="Type of k-space mask")
     parser.add_argument("--dset", type=str, default="fastmribrain", choices=("fastmriknee", "fastmribrain"), help="Which dataset to use")
 
     # TRAIN ARGS
-    parser.add_argument("--bs", type=int, default=16, help="Batch size for training and validation")
+    parser.add_argument("--bs", type=int, default=4, help="Batch size for training and validation")
     parser.add_argument("--ne", type=int, default=100, help="Number of epochs")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for training")
     parser.add_argument("--dv", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device for model training")
@@ -37,12 +37,12 @@ def train_():
     parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
-    parser.add_argument('--K', type=int, default=5, help="Whether to perform Data parallelism")
+    parser.add_argument('--K', type=int, default=5, help="number of blocks in cascade")
     parser.add_argument('--lmbda', type=int, default=0, help="hyperparameter lambda")
-    parser.add_argument('--num_hidden', type=int, default=64, help="Whether to perform Data parallelism")
+    parser.add_argument('--num_hidden', type=int, default=64, help="num filters in ResNet layers")
 
-    parser.add_argument('--tv_coeff', type=float, default=0.005, help="Whether to perform Data parallelism")
-    parser.add_argument('--w_coeff', type=float, default=0.002, help="Whether to perform Data parallelism")
+    parser.add_argument('--tv_coeff', type=float, default=0.005, help="alpha")
+    parser.add_argument('--w_coeff', type=float, default=0.002, help="beta")
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
