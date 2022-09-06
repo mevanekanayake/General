@@ -49,7 +49,6 @@ def train_():
 
     # LOAD CHECKPOINT
     ckpt = torch.load(Path(args.ckpt), map_location='cpu') if args.ckpt else None
-    args.ne = args.ne - ckpt['epoch'] if args.ckpt else args.ne
 
     # SET SEED
     set_seed()
@@ -97,6 +96,7 @@ def train_():
 
     # INITIALIZE RUN MANAGER
     m = RunManager(exp_path, ckpt, val_dataset.seq_types, args.pf, val_dataset.selected_examples)
+    args.ne = args.ne - ckpt['epoch'] if args.ckpt else args.ne
 
     # LOOP
     for _ in range(args.ne):
