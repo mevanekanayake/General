@@ -37,7 +37,7 @@ def train_():
     parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
-    parser.add_argument("--embed_dim", type=str, default=96, help="Embedding dimension")
+    parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
