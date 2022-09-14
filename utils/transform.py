@@ -9,6 +9,7 @@ from utils.mask import apply_random_mask
 
 
 class Sample(NamedTuple):
+    kspace: torch.Tensor
     kspace_und: torch.Tensor
     mask: torch.Tensor
     image_zf: torch.Tensor
@@ -43,6 +44,7 @@ class Transform:
         image_zf = complex_abs(image_zf2)
 
         sample = Sample(
+            kspace=kspace_ori.permute(2, 0, 1),
             kspace_und=kspace_und.permute(2, 0, 1),
             mask=mask.unsqueeze(0),
             image_zf=image_zf.unsqueeze(0),

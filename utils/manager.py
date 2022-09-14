@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
-
-from utils.visualize import inp_out_ref
+from torchvision.utils import save_image
+from torchvision.utils import make_grid
 
 import platform
 import json
@@ -88,6 +88,8 @@ class RunManager:
 
     slice_stats: dict
 
+    best_epoch: bool
+
     def __init__(self, experiments_path, ckpt, seq_types, plot_freq, selected_examples):
 
         self.experiments_path = experiments_path
@@ -131,6 +133,8 @@ class RunManager:
 
         self.slice_stats = {}
 
+        self.best_epoch = False
+
     def end_train_step(self, train_loss, size_of_train_batch):
         self.epoch_train_loss += train_loss * size_of_train_batch
         self.train_slice_count += size_of_train_batch
@@ -161,11 +165,6 @@ class RunManager:
             self.slice_stats[fname]["nmse"][slice_num] = (self.mse_vals[fname][slice_num] / self.target_norms[fname][slice_num]).item()
             self.slice_stats[fname]["psnr"][slice_num] = (10 * torch.log10(1.0 ** 2 / self.mse_vals[fname][slice_num])).item()
             self.slice_stats[fname]["ssim"][slice_num] = (metrics.ssim(target, output)).item()
-
-            # PLOTTING
-            if (self.epoch_count % self.plot_freq == 0) and (fname in self.selected_fnames) and (slice_num == 0):
-                fig_path = os.path.join(self.fig_path, f'epoch_{self.epoch_count}')
-                inp_out_ref(images=[zfimage.squeeze(0), output.squeeze(0), target.squeeze(0)], title=fname, root=fig_path)
 
     def end_epoch(self, model, optimizer, logger):
 
@@ -229,6 +228,7 @@ class RunManager:
             best_psnr = torch.mean(torch.tensor(([volume_stats[fname]["psnr"].item() for fname in fnames]))).item()
             best_ssim = torch.mean(torch.tensor(([volume_stats[fname]["ssim"].item() for fname in fnames]))).item()
             logger.info(f'Best performance recorded >> epoch: {self.epoch_count} | NMSE: {best_nmse:.4f} | PSNR: {best_psnr:.2f} | SSIM: {best_ssim:.4f}')
+            self.best_epoch = True
 
         torch.save({'epoch': self.epoch_count,
                     'last_model_state_dict': last_model_state_dict,
@@ -236,3 +236,26 @@ class RunManager:
                     'best_model_state_dict': self.best_model_state_dict,
                     'best_val_loss': self.best_val_loss,
                     }, os.path.join(self.experiments_path, f'{self.folder_name}_model.pth'))
+
+    def visualize(self, fnames, slice_nums, sequences, zfimages, outputs, targets):
+
+        for fname, slice_num, sequence, zfimage, output, target in zip(fnames, slice_nums, sequences, zfimages, outputs, targets):
+
+            zfimage = zfimage.flip([1])
+            output = output.flip([1])
+            target = target.flip([1])
+
+            if self.epoch_count % self.plot_freq == 0:
+                fig_path = os.path.join(self.fig_path, f'epoch_{self.epoch_count}')
+                os.mkdir(fig_path) if not os.path.isdir(fig_path) else None
+                save_image(make_grid([zfimage, output, target], nrow=3, padding=5), os.path.join(fig_path, f'{fname}.jpg'))
+
+            if self.best_epoch:
+                fig_path = os.path.join(self.fig_path, f'epoch_best')
+                os.mkdir(fig_path) if not os.path.isdir(fig_path) else None
+                save_image(make_grid([zfimage, output, target], nrow=3, padding=5), os.path.join(fig_path, f'{fname}.jpg'))
+                fig_subpath = os.path.join(fig_path, fname)
+                os.mkdir(fig_subpath) if not os.path.isdir(fig_subpath) else None
+                save_image(zfimage.squeeze(), os.path.join(fig_subpath, 'ZF.jpg'))
+                save_image(output.squeeze(), os.path.join(fig_subpath, 'OUT.jpg'))
+                save_image(target.squeeze(), os.path.join(fig_subpath, 'REF.jpg'))
