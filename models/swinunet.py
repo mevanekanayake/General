@@ -766,13 +766,13 @@ class SwinTransformerSys(nn.Module):
 
 
 class SwinUnet(nn.Module):
-    def __init__(self, embed_dim):
+    def __init__(self, embed_dim, in_chans, out_chans):
         super(SwinUnet, self).__init__()
 
         self.swin_unet = SwinTransformerSys(img_size=320,
                                             patch_size=4,
-                                            in_chans=2,
-                                            num_classes=2,
+                                            in_chans=in_chans,
+                                            num_classes=out_chans,
                                             embed_dim=embed_dim,
                                             depths=[2, 2, 2, 2],
                                             num_heads=[3, 6, 12, 24],

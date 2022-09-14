@@ -40,8 +40,8 @@ def train_():
 
     # MODEL ARGS
     parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
-    parser.add_argument("--in_chans", type=int, default=2, help="input channels")
-    parser.add_argument("--out_chans", type=int, default=2, help="Embedding dimension")
+    parser.add_argument("--in_chans", type=int, default=1, help="input channels")
+    parser.add_argument("--out_chans", type=int, default=1, help="Embedding dimension")
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
@@ -119,13 +119,12 @@ def train_():
             for batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                yu = batch.kspace_und.to(args.dv)
-                y = batch.kspace.to(args.dv)
-                msk = batch.mask.to(args.dv)
+                xu = batch.image_zf.to(args.dv)
+                x = batch.target.to(args.dv)
 
                 optimizer.zero_grad()
-                y_hat = (1 - msk) * model(yu) + msk * y
-                train_loss = loss(y_hat, y)
+                x_hat = model(xu) + xu
+                train_loss = loss(x_hat, x)
                 train_loss.backward()
                 optimizer.step()
 
@@ -141,21 +140,18 @@ def train_():
                 for batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    yu = batch.kspace_und.to(args.dv)
-                    y = batch.kspace.to(args.dv)
-                    msk = batch.mask.to(args.dv)
+                    xu = batch.image_zf.to(args.dv)
+                    x = batch.target.to(args.dv)
                     fname = batch.fname
                     slice_num = batch.slice_num
                     sequence = batch.sequence
 
-                    y_hat = (1 - msk) * model(yu) + msk * y
-                    val_loss = loss(y_hat, y)
-
-                    output = complex_abs(ift(y_hat.permute(0, 2, 3, 1))).unsqueeze(1)
+                    x_hat = model(xu) + xu
+                    val_loss = loss(x_hat, x)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
-                    m.end_val_step(fname, slice_num, sequence, batch.image_zf, output.to('cpu'), batch.target, val_loss.to('cpu'))
+                    m.end_val_step(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'), val_loss.to('cpu'))
 
             # END EPOCH
             m.end_epoch(model, optimizer, logger)
@@ -166,19 +162,16 @@ def train_():
                     for batch in viz_epoch:
                         viz_epoch.set_description(f"Epoch {m.epoch_count} [Visualization]")
 
-                        yu = batch.kspace_und.to(args.dv)
-                        y = batch.kspace.to(args.dv)
-                        msk = batch.mask.to(args.dv)
+                        xu = batch.image_zf.to(args.dv)
+                        x = batch.target.to(args.dv)
                         fname = batch.fname
                         slice_num = batch.slice_num
                         sequence = batch.sequence
 
-                        y_hat = (1 - msk) * model(yu) + msk * y
-
-                        output = complex_abs(ift(y_hat.permute(0, 2, 3, 1))).unsqueeze(1)
+                        x_hat = model(xu) + xu
 
                         # END VISUALIZATION STEP
-                        m.visualize(fname, slice_num, sequence, batch.image_zf, output.to('cpu'), batch.target)
+                        m.visualize(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'))
 
 
 if __name__ == '__main__':
