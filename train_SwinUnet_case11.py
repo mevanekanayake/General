@@ -35,7 +35,7 @@ def train_():
 
     # EXPERIMENT ARGS
     parser.add_argument("--ckpt", type=str, help="Continue trainings from checkpoint")
-    parser.add_argument("--pf", type=int, default=2, help="Plotting frequency")
+    parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
     parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
