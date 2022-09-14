@@ -7,5 +7,10 @@
 	"MU00218678": {
 		"fastmribrain": "D:\\Data\\NYU_FastMRI_V2\\Brain_MRI",
 		"experiments": "D:\\Experiments"
+	},
+
+	"mu": {
+		"fastmribrain": "/fs03/ab57/eeka0002/Data/NYU_FastMRI_V2/Brain_MRI",
+		"experiments": "/fs02/ab57/eeka0002/Experiments"
 	}
 }
