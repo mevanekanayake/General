@@ -25,6 +25,7 @@ def train_():
     parser.add_argument("--vnv", type=int, default=20, help="Number of volumes used for validation [set to 0 for the full dataset]")
     parser.add_argument("--mtype", type=str, default="random", choices=("random", "equispaced"), help="Type of k-space mask")
     parser.add_argument("--dset", type=str, default="fastmribrain", choices=("fastmriknee", "fastmribrain"), help="Which dataset to use")
+    parser.add_argument("--seq_types", type=str, default="AXT1,AXT1POST,AXT2,AXFLAIR", help="Which sequence types to use")
 
     # TRAIN ARGS
     parser.add_argument("--bs", type=int, default=8, help="Batch size for training and validation")
@@ -42,6 +43,7 @@ def train_():
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
+    args.seq_types = args.seq_types.split(',')
 
     # LOAD CHECKPOINT
     ckpt = torch.load(Path(args.ckpt), map_location='cpu') if args.ckpt else None
@@ -76,20 +78,21 @@ def train_():
 
     # LOAD TRAINING DATA
     train_transform = Transform(train=True, mask_type=args.mtype, accelerations=args.acc)
-    train_dataset = Data(root=data_path, train=True, transform=train_transform, nv=args.tnv)
+    train_dataset = Data(root=data_path, train=True, seq_types=args.seq_types, transform=train_transform, nv=args.tnv)
     train_loader = DataLoader(dataset=train_dataset, batch_size=args.bs, num_workers=0, shuffle=True, pin_memory=True)
     logger.info(f'Training set: No. of volumes: {train_dataset.num_volumes} | No. of slices: {len(train_dataset)}')
+    logger.info(f'{train_dataset.data_per_seq[:-1]}')
 
     # LOAD VALIDATION DATA
     val_transform = Transform(train=False, mask_type=args.mtype, accelerations=args.acc)
-    val_dataset = Data(root=data_path, train=False, transform=val_transform, nv=args.vnv)
+    val_dataset = Data(root=data_path, train=False, seq_types=args.seq_types, transform=val_transform, nv=args.vnv)
     val_loader = DataLoader(dataset=val_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
     logger.info(f'Validation set: No. of volumes: {val_dataset.num_volumes} | No. of slices: {len(val_dataset)}')
+    logger.info(f'{val_dataset.data_per_seq[:-1]}')
 
     # LOAD VISUALIZATION DATA
-    viz_dataset = Data(root=data_path, train=False, transform=val_transform, nv=args.vnv, viz=True)
+    viz_dataset = Data(root=data_path, train=False, seq_types=args.seq_types, transform=val_transform, nv=args.vnv, viz=True)
     viz_loader = DataLoader(dataset=viz_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
-    logger.info(f'Visualization set: No. of slices: {len(viz_dataset)}')
 
     # LOSS FUNCTION
     loss = nn.MSELoss()
@@ -100,7 +103,7 @@ def train_():
     optimizer.load_state_dict(ckpt['last_optimizer_state_dict']) if args.ckpt else None
 
     # INITIALIZE RUN MANAGER
-    m = RunManager(exp_path, ckpt, val_dataset.seq_types, args.pf, val_dataset.selected_examples)
+    m = RunManager(exp_path, ckpt, args.seq_types, args.pf, val_dataset.selected_examples)
 
     # LOOP
     for _ in range(args.ne):
