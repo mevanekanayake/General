@@ -18,7 +18,7 @@ from models.swinunet import SwinUnet
 def train_():
     # SET ARGUMENTS
     parser = argparse.ArgumentParser()
-    #
+    ##
     # DATA ARGS
     parser.add_argument("--acc", type=list, default=[4], help="Acceleration factors for the k-space undersampling")
     parser.add_argument("--tnv", type=int, default=80, help="Number of volumes used for training [set to 0 for the full dataset]")
