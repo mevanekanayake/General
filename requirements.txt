@@ -7,3 +7,5 @@ matplotlib
 h5py
 torch
 seaborn
+einops
+timm
