@@ -10,7 +10,7 @@ from utils.data import Data
 from utils.transform import Transform
 from utils.manager import set_seed, set_cuda, fetch_paths, set_logger, set_device, RunManager
 
-from models.swinunet import SwinUnet
+from models.miccan import MICCAN
 
 
 def train_():
@@ -37,9 +37,10 @@ def train_():
     parser.add_argument("--pf", type=int, default=10, help="Plotting frequency")
 
     # MODEL ARGS
-    parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
-    parser.add_argument("--in_chans", type=int, default=1, help="input channels")
-    parser.add_argument("--out_chans", type=int, default=1, help="Embedding dimension")
+    parser.add_argument('--blocktype', default='UCA', type=str, help='model')
+    parser.add_argument('--nblock', default=5, type=int, help='number of block')
+    parser.add_argument('--in_channels', default=2, type=int, help='number of input channels')
+    parser.add_argument('--out_channels', default=2, type=int, help='number of output channels')
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
@@ -66,7 +67,7 @@ def train_():
     logger.info(f'experiment_path = {str(exp_path)}')
 
     # LOAD MODEL
-    model = SwinUnet(args.embed_dim, args.in_chans, args.out_chans)
+    model = MICCAN(args)
     model.load_state_dict(ckpt['last_model_state_dict']) if args.ckpt else None
     logger.info(f'No. of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 
@@ -117,11 +118,13 @@ def train_():
             for batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                xu = batch.image_zf.to(args.dv)
+                xu = batch.image_zf2.to(args.dv)
                 x = batch.target.to(args.dv)
+                yu = batch.kspace_und.to(args.dv)
+                msk = batch.mask.to(args.dv)
 
                 optimizer.zero_grad()
-                x_hat = model(xu) + xu
+                x_hat = model(xu, yu, msk)
                 train_loss = loss(x_hat, x)
                 train_loss.backward()
                 optimizer.step()
@@ -138,18 +141,20 @@ def train_():
                 for batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    xu = batch.image_zf.to(args.dv)
+                    xu = batch.image_zf2.to(args.dv)
                     x = batch.target.to(args.dv)
+                    yu = batch.kspace_und.to(args.dv)
+                    msk = batch.mask.to(args.dv)
                     fname = batch.fname
                     slice_num = batch.slice_num
                     sequence = batch.sequence
 
-                    x_hat = model(xu) + xu
+                    x_hat = model(xu, yu, msk)
                     val_loss = loss(x_hat, x)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
-                    m.end_val_step(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'), val_loss.to('cpu'))
+                    m.end_val_step(fname, slice_num, sequence, batch.image_zf, x_hat.to('cpu'), x.to('cpu'), val_loss.to('cpu'))
 
             # END EPOCH
             m.end_epoch(model, optimizer, logger)
@@ -160,16 +165,18 @@ def train_():
                     for batch in viz_epoch:
                         viz_epoch.set_description(f"Epoch {m.epoch_count} [Visualization]")
 
-                        xu = batch.image_zf.to(args.dv)
+                        xu = batch.image_zf2.to(args.dv)
                         x = batch.target.to(args.dv)
+                        yu = batch.kspace_und.to(args.dv)
+                        msk = batch.mask.to(args.dv)
                         fname = batch.fname
                         slice_num = batch.slice_num
                         sequence = batch.sequence
 
-                        x_hat = model(xu) + xu
+                        x_hat = model(xu, yu, msk)
 
                         # END VISUALIZATION STEP
-                        m.visualize(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'))
+                        m.visualize(fname, slice_num, sequence, batch.image_zf, x_hat.to('cpu'), x.to('cpu'))
 
 
 if __name__ == '__main__':

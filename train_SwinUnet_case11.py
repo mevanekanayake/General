@@ -124,7 +124,7 @@ def train_():
                 msk = batch.mask.to(args.dv)
 
                 optimizer.zero_grad()
-                y_hat = (1 - msk) * model(yu) + msk * y
+                y_hat = (1 - msk) * model(yu) + yu
                 train_loss = loss(y_hat, y)
                 train_loss.backward()
                 optimizer.step()
@@ -148,7 +148,7 @@ def train_():
                     slice_num = batch.slice_num
                     sequence = batch.sequence
 
-                    y_hat = (1 - msk) * model(yu) + msk * y
+                    y_hat = (1 - msk) * model(yu) + yu
                     val_loss = loss(y_hat, y)
 
                     output = complex_abs(ift(y_hat.permute(0, 2, 3, 1))).unsqueeze(1)
@@ -173,7 +173,7 @@ def train_():
                         slice_num = batch.slice_num
                         sequence = batch.sequence
 
-                        y_hat = (1 - msk) * model(yu) + msk * y
+                        y_hat = (1 - msk) * model(yu) + yu
 
                         output = complex_abs(ift(y_hat.permute(0, 2, 3, 1))).unsqueeze(1)
 

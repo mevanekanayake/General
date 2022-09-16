@@ -7,6 +7,9 @@ import argparse
 from pathlib import Path
 
 from utils.data import Data
+from utils.math import complex_abs
+from utils.fourier import fft2c as ft
+from utils.fourier import ifft2c as ift
 from utils.transform import Transform
 from utils.manager import set_seed, set_cuda, fetch_paths, set_logger, set_device, RunManager
 
@@ -38,8 +41,8 @@ def train_():
 
     # MODEL ARGS
     parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
-    parser.add_argument("--in_chans", type=int, default=1, help="input channels")
-    parser.add_argument("--out_chans", type=int, default=1, help="Embedding dimension")
+    parser.add_argument("--in_chans", type=int, default=2, help="input channels")
+    parser.add_argument("--out_chans", type=int, default=2, help="Embedding dimension")
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
@@ -117,12 +120,15 @@ def train_():
             for batch in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                xu = batch.image_zf.to(args.dv)
-                x = batch.target.to(args.dv)
+                yu = batch.kspace_und.to(args.dv)
+                msk = batch.mask.to(args.dv)
 
                 optimizer.zero_grad()
-                x_hat = model(xu) + xu
-                train_loss = loss(x_hat, x)
+
+                x_hat = ift(((1 - msk) * ft(model(yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2) + yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+                yu_hat = msk * ft(x_hat.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+                train_loss = loss(yu_hat, yu)
                 train_loss.backward()
                 optimizer.step()
 
@@ -138,18 +144,20 @@ def train_():
                 for batch in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    xu = batch.image_zf.to(args.dv)
-                    x = batch.target.to(args.dv)
+                    yu = batch.kspace_und.to(args.dv)
+                    msk = batch.mask.to(args.dv)
                     fname = batch.fname
                     slice_num = batch.slice_num
                     sequence = batch.sequence
 
-                    x_hat = model(xu) + xu
-                    val_loss = loss(x_hat, x)
+                    x_hat = ift(((1 - msk) * ft(model(yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2) + yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+                    yu_hat = msk * ft(x_hat.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+                    val_loss = loss(yu_hat, yu)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
-                    m.end_val_step(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'), val_loss.to('cpu'))
+                    m.end_val_step(fname, slice_num, sequence, batch.image_zf, complex_abs(x_hat.permute(0, 2, 3, 1)).unsqueeze(1).to('cpu'), batch.target, val_loss.to('cpu'))
 
             # END EPOCH
             m.end_epoch(model, optimizer, logger)
@@ -160,16 +168,16 @@ def train_():
                     for batch in viz_epoch:
                         viz_epoch.set_description(f"Epoch {m.epoch_count} [Visualization]")
 
-                        xu = batch.image_zf.to(args.dv)
-                        x = batch.target.to(args.dv)
+                        yu = batch.kspace_und.to(args.dv)
+                        msk = batch.mask.to(args.dv)
                         fname = batch.fname
                         slice_num = batch.slice_num
                         sequence = batch.sequence
 
-                        x_hat = model(xu) + xu
+                        x_hat = ift(((1 - msk) * ft(model(yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2) + yu).permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
                         # END VISUALIZATION STEP
-                        m.visualize(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'))
+                        m.visualize(fname, slice_num, sequence, batch.image_zf, complex_abs(x_hat.permute(0, 2, 3, 1)).unsqueeze(1).to('cpu'), batch.target)
 
 
 if __name__ == '__main__':
