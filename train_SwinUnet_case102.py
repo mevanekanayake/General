@@ -21,7 +21,9 @@ class Cascaded_SwinUnet(nn.Module):
         super(Cascaded_SwinUnet, self).__init__()
 
         self.num_iter = num_iter
-        self.swin_unet = SwinUnet(embed_dim, in_chans, out_chans)
+        self.swin_unets = nn.ModuleList([])
+        for i in range(self.num_iter):
+            self.swin_unets.append(SwinUnet(embed_dim, in_chans, out_chans))
 
     def forward(self, loss_function, batch, args):
         xu = batch.image_zf2.to(args.dv)
@@ -31,7 +33,7 @@ class Cascaded_SwinUnet(nn.Module):
 
         x_temp = xu
         for i in range(self.num_iter):
-            x_model = self.swin_unet(x_temp)
+            x_model = self.swin_unets[i](x_temp)
             y_model = ft(x_model.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
             y_dc = (1 - m) * y_model + yu
             x_dc = ift(y_dc.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
@@ -126,7 +128,7 @@ def train_():
     viz_loader = DataLoader(dataset=viz_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
 
     # LOSS FUNCTION
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.L1Loss()
 
     # SET OPTIMIZER
     logger.info(f'Optimizer: RMSprop')
