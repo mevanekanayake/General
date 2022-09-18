@@ -95,7 +95,7 @@ def loss_with_reg(z, x, w_coeff, tv_coeff, lmbda, device):
     return loss, dc, reg
 
 
-def unsup_loss(x_hat, y, mask, alpha, beta):
+def unsup_loss(x_hat, y, mask, alpha=0.005, beta=0.002):
     """Unsupervised loss for amortized optimization
     Loss = DC + (1-alpha)*beta * Reg1 + (1-alpha)*(1-beta) * Reg2
     Parameters

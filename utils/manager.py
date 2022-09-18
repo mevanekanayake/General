@@ -32,7 +32,7 @@ def set_cuda(deterministic=True, benchmark=False):  # set deterministic to True 
 
 
 def fetch_paths(dataset):
-    node = platform.node() if platform.node()[:2] != "mu" else "mu"
+    node = platform.node() if platform.node()[:2] != "m3" else "m3"
     path_file = os.path.join('utils', 'paths.json')
     f = json.load(open(path_file))
     data_path = Path(f[node][dataset])

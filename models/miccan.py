@@ -94,7 +94,7 @@ class MICCAN(nn.Module):
             image = self.dc(mask, x_cnn, kspace)
 
         output_final = sigtoimage(image)
-        return output_final
+        return output_final, image
 
 
 # MICCAN without long residual, reconstruction block could be cascaded blocks, UNet, UCA(UNet with attention)
