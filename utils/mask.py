@@ -18,7 +18,7 @@ def apply_random_mask(kspace, accelerations, seed):
     mask = mask.repeat(num_rows, 1).long()
     masked_kspace = kspace * mask.unsqueeze(-1)
 
-    return masked_kspace, mask
+    return masked_kspace, mask, acceleration
 
 # TO DO
 # EQUISPACED MASK

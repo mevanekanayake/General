@@ -19,6 +19,7 @@ class Sample(NamedTuple):
     fname: str
     slice_num: int
     sequence: str
+    acceleration: int
 
 
 class Transform:
@@ -35,10 +36,9 @@ class Transform:
         seed = int("".join(re.findall(r"\d+", fname))) if not self.train else None
 
         if self.mask_type == 'random':
-            kspace_und, mask = apply_random_mask(kspace_ori, self.accelerations, seed)
+            kspace_und, mask, acc = apply_random_mask(kspace_ori, self.accelerations, seed)
         else:
-            kspace_und = kspace_ori
-            mask = None
+            raise ValueError("This code base currently accomodates only random masking.")
 
         image_zf2 = ift(kspace_und)
         image_zf = complex_abs(image_zf2)
@@ -53,7 +53,8 @@ class Transform:
             target2=target2.permute(2, 0, 1),
             fname=fname,
             slice_num=slice_num,
-            sequence=sequence
+            sequence=sequence,
+            acceleration=acc
         )
 
         return sample

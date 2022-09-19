@@ -9,8 +9,37 @@ from pathlib import Path
 from utils.data import Data
 from utils.transform import Transform
 from utils.manager import set_seed, set_cuda, fetch_paths, set_logger, set_device, RunManager
+from utils.fourier import fft2c as ft
+from utils.fourier import ifft2c as ift
+from utils.math import complex_abs
 
 from models.swinunet import SwinUnet
+
+
+class Cascaded_SwinUnet(nn.Module):
+    def __init__(self, embed_dim, in_chans, out_chans, num_iter):
+        super(Cascaded_SwinUnet, self).__init__()
+
+        self.num_iter = num_iter
+        self.swin_unet = SwinUnet(embed_dim, in_chans, out_chans)
+
+    def forward(self, loss_function, batch, args):
+        xu = batch.image_zf2.to(args.dv)
+        yu = batch.kspace_und.to(args.dv)
+        m = batch.mask.to(args.dv)
+        x = batch.target.to(args.dv)
+
+        x_temp = xu
+        for i in range(self.num_iter):
+            y_model = self.swin_unet(x_temp)
+            y_dc = (1 - m) * y_model + yu
+            x_dc = ift(y_dc.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+            x_temp = x_dc
+
+        x_hat = complex_abs(x_temp.permute(0, 2, 3, 1)).unsqueeze(1)
+        loss = loss_function(x_hat, x)
+
+        return loss, x_hat
 
 
 def train_():
@@ -26,7 +55,7 @@ def train_():
     parser.add_argument("--seq_types", type=str, default="AXT1,AXT1POST,AXT2,AXFLAIR", help="Which sequence types to use")
 
     # TRAIN ARGS
-    parser.add_argument("--bs", type=int, default=8, help="Batch size for training and validation")
+    parser.add_argument("--bs", type=int, default=4, help="Batch size for training and validation")
     parser.add_argument("--ne", type=int, default=50, help="Number of epochs")
     parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for training")
     parser.add_argument("--dv", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device for model training")
@@ -38,8 +67,9 @@ def train_():
 
     # MODEL ARGS
     parser.add_argument("--embed_dim", type=int, default=96, help="Embedding dimension")
-    parser.add_argument("--in_chans", type=int, default=1, help="input channels")
-    parser.add_argument("--out_chans", type=int, default=1, help="Embedding dimension")
+    parser.add_argument("--in_chans", type=int, default=2, help="Input channels")
+    parser.add_argument("--out_chans", type=int, default=2, help="Ouput channels")
+    parser.add_argument("--num_iter", type=int, default=5, help="Number of iterations")
 
     # LOAD ARGUMENTS
     args = parser.parse_args()
@@ -66,7 +96,7 @@ def train_():
     logger.info(f'experiment_path = {str(exp_path)}')
 
     # LOAD MODEL
-    model = SwinUnet(args.embed_dim, args.in_chans, args.out_chans)
+    model = Cascaded_SwinUnet(args.embed_dim, args.in_chans, args.out_chans, args.num_iter)
     model.load_state_dict(ckpt['last_model_state_dict']) if args.ckpt else None
     logger.info(f'No. of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
 
@@ -95,7 +125,7 @@ def train_():
     viz_loader = DataLoader(dataset=viz_dataset, batch_size=args.bs, num_workers=0, shuffle=False, pin_memory=True)
 
     # LOSS FUNCTION
-    loss = nn.L1Loss()
+    loss_fn = nn.MSELoss()
 
     # SET OPTIMIZER
     logger.info(f'Optimizer: RMSprop')
@@ -114,42 +144,33 @@ def train_():
         model.train()
         with tqdm(train_loader, unit="batch") as train_epoch:
 
-            for batch in train_epoch:
+            for b in train_epoch:
                 train_epoch.set_description(f"Epoch {m.epoch_count} [Training]")
 
-                xu = batch.image_zf.to(args.dv)
-                x = batch.target.to(args.dv)
-
                 optimizer.zero_grad()
-                x_hat = model(xu) + xu
-                train_loss = loss(x_hat, x)
+
+                train_loss, _ = model(loss_fn, b, args)
+
                 train_loss.backward()
                 optimizer.step()
 
                 # END TRAINING STEP
                 train_epoch.set_postfix(train_loss=train_loss.detach().item())
-                m.end_train_step(train_loss.detach().to('cpu'), batch[0].shape[0])
+                m.end_train_step(train_loss.detach().to('cpu'), b[0].shape[0])
 
         model.eval()
         with torch.no_grad():
 
             # BEGIN VALIDATION LOOP
             with tqdm(val_loader, unit="batch") as val_epoch:
-                for batch in val_epoch:
+                for b in val_epoch:
                     val_epoch.set_description(f"Epoch {m.epoch_count} [Validation]")
 
-                    xu = batch.image_zf.to(args.dv)
-                    x = batch.target.to(args.dv)
-                    fname = batch.fname
-                    slice_num = batch.slice_num
-                    sequence = batch.sequence
-
-                    x_hat = model(xu) + xu
-                    val_loss = loss(x_hat, x)
+                    val_loss, x_hat = model(loss_fn, b, args)
 
                     # END VALIDATION STEP
                     val_epoch.set_postfix(val_loss=val_loss.detach().item())
-                    m.end_val_step(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'), val_loss.to('cpu'))
+                    m.end_val_step(b.fname, b.slice_num, b.sequence, b.image_zf, x_hat.to('cpu'), b.target, val_loss.to('cpu'))
 
             # END EPOCH
             m.end_epoch(model, optimizer, logger)
@@ -157,19 +178,13 @@ def train_():
             # VISUALIZATION
             if m.best_epoch or (m.epoch_count % args.pf == 0):
                 with tqdm(viz_loader, unit="batch") as viz_epoch:
-                    for batch in viz_epoch:
+                    for b in viz_epoch:
                         viz_epoch.set_description(f"Epoch {m.epoch_count} [Visualization]")
 
-                        xu = batch.image_zf.to(args.dv)
-                        x = batch.target.to(args.dv)
-                        fname = batch.fname
-                        slice_num = batch.slice_num
-                        sequence = batch.sequence
-
-                        x_hat = model(xu) + xu
+                        _, x_hat = model(loss_fn, b, args)
 
                         # END VISUALIZATION STEP
-                        m.visualize(fname, slice_num, sequence, xu.to('cpu'), x_hat.to('cpu'), x.to('cpu'))
+                        m.visualize(b.fname, b.slice_num, b.sequence, b.image_zf, x_hat.to('cpu'), b.target)
 
 
 if __name__ == '__main__':
